@@ -28,6 +28,156 @@ app.use(cors({
 }));
 app.use(express.json());
 
+/* ✅ VERIFY TICKET (For QR Code Scanner) */
+app.get("/verify-ticket", async (req, res) => {
+    const { ticketId } = req.query;
+    if (!ticketId) {
+        // If no ticketId provided, serve the verification page
+        return res.send(`
+            <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Verify Ticket - Pilgrimage Booking</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+                </head>
+                <body>
+                    <div class="container mt-5">
+                        <h2>Ticket Verification</h2>
+                        <p>Please scan a valid QR code to verify a ticket.</p>
+                    </div>
+                </body>
+            </html>
+        `);
+    }
+
+    try {
+        const booking = await Booking.findOne({ ticketId: ticketId.trim() });
+        if (!booking) {
+            return res.send(`
+                <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Ticket Not Found - Pilgrimage Booking</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                    </head>
+                    <body style="background: #f5f5f5;">
+                        <div class="container mt-5">
+                            <div class="card shadow">
+                                <div class="card-body text-center p-5">
+                                    <i class="fas fa-times-circle text-danger" style="font-size: 4rem;"></i>
+                                    <h2 class="mt-4">Ticket Not Found</h2>
+                                    <p class="text-muted">The ticket ID "${ticketId}" does not exist in our system.</p>
+                                    <a href="/verify-ticket" class="btn btn-primary">Try Another Ticket</a>
+                                </div>
+                            </div>
+                        </div>
+                    </body>
+                </html>
+            `);
+        }
+
+        // Ticket is valid - display details
+        const statusColor = booking.status === 'Approved' ? 'success' : booking.status === 'Pending' ? 'warning' : 'danger';
+        const statusIcon = booking.status === 'Approved' ? 'fa-check-circle' : booking.status === 'Pending' ? 'fa-clock' : 'fa-times-circle';
+
+        return res.send(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Ticket Verified - ${ticketId}</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+                <style>
+                    body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+                    .verification-card { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+                    .status-badge { font-size: 1.1rem; padding: 10px 20px; border-radius: 50px; }
+                    .info-row { padding: 15px 0; border-bottom: 1px solid #e9ecef; }
+                    .info-row:last-child { border-bottom: none; }
+                </style>
+            </head>
+            <body>
+                <div class="container py-5">
+                    <div class="verification-card mx-auto" style="max-width: 700px;">
+                        <div class="card-header bg-${statusColor} text-white text-center py-4">
+                            <i class="fas ${statusIcon} fa-3x mb-3"></i>
+                            <h2 class="mb-0">Ticket Verified</h2>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="info-row">
+                                <strong><i class="fas fa-ticket-alt text-primary"></i> Ticket ID:</strong>
+                                <span class="float-end font-monospace">${booking.ticketId}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong><i class="fas fa-user text-primary"></i> Name:</strong>
+                                <span class="float-end">${booking.name}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong><i class="fas fa-mobile-alt text-primary"></i> Mobile:</strong>
+                                <span class="float-end">${booking.mobile}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong><i class="fas fa-envelope text-primary"></i> Email:</strong>
+                                <span class="float-end">${booking.email}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong><i class="fas fa-id-card text-primary"></i> Aadhaar:</strong>
+                                <span class="float-end">XXXX XXXX ${booking.aadhaar.slice(-4)}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong><i class="fas fa-torii-gate text-primary"></i> Temple:</strong>
+                                <span class="float-end">${booking.temple}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong><i class="fas fa-calendar text-primary"></i> Date:</strong>
+                                <span class="float-end">${booking.date}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong><i class="fas fa-clock text-primary"></i> Time:</strong>
+                                <span class="float-end">${booking.time}</span>
+                            </div>
+                            <div class="text-center mt-4">
+                                <span class="badge bg-${statusColor} status-badge">
+                                    <i class="fas ${statusIcon}"></i> Status: ${booking.status}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-footer text-center bg-light">
+                            <small class="text-muted">
+                                <i class="fas fa-shield-alt text-success"></i> Verified by Pilgrimage Booking System
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+    } catch (error) {
+        console.error("❌ Error verifying ticket:", error);
+        return res.send(`
+            <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Verification Error</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                </head>
+                <body>
+                    <div class="container mt-5">
+                        <div class="alert alert-danger">
+                            <h4>Verification Error</h4>
+                            <p>An error occurred while verifying the ticket. Please try again.</p>
+                        </div>
+                    </div>
+                </body>
+            </html>
+        `);
+    }
+});
+
 /* ✅ FETCH A BOOKING BY TICKET ID */
 app.get("/api/getBooking", async (req, res) => {
     const { ticketId } = req.query;
